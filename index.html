@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VideoBuilder — Simple Timeline Video Editor & Slideshow Maker</title>
+  <meta name="description" content="Build videos from clips and photos on one simple timeline. Drag, trim, crossfade, add titles and music, export to MP4 with ffmpeg. Free and open source." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:      #7C3AED;
+      --accent-dark: #6D28D9;
+      --accent-pale: #F5F3FF;
+      --gray-50:    #F9FAFB;
+      --gray-100:   #F3F4F6;
+      --gray-200:   #E5E7EB;
+      --gray-400:   #9CA3AF;
+      --gray-600:   #4B5563;
+      --gray-700:   #374151;
+      --gray-800:   #1F2937;
+      --gray-900:   #111827;
+      --white:      #FFFFFF;
+      --radius:     12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--gray-800);
+      background: var(--white);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .nav-inner {
+      padding: 0 2rem; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; flex-shrink: 0;
+    }
+    .nav-brand span { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+    .nav-links { display: flex; align-items: center; gap: 2rem; }
+    .nav-links a {
+      text-decoration: none; font-size: 0.875rem; font-weight: 500;
+      color: var(--gray-600); transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--gray-900); }
+
+    .nav-hamburger {
+      display: none; background: none; border: none; cursor: pointer;
+      padding: 6px; color: var(--gray-800);
+      flex-direction: column; gap: 5px; align-items: center; justify-content: center;
+    }
+    .nav-hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: currentColor; border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-hamburger.open span:nth-child(2) { opacity: 0; }
+    .nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    .nav-mobile {
+      display: none; flex-direction: column;
+      background: var(--white); border-top: 1px solid var(--gray-200);
+      padding: 1rem 1.5rem 1.25rem; gap: 0;
+    }
+    .nav-mobile.open { display: flex; }
+    .nav-mobile a {
+      text-decoration: none; font-size: 0.95rem; font-weight: 500;
+      color: var(--gray-700); padding: 0.7rem 0;
+      border-bottom: 1px solid var(--gray-100); transition: color 0.15s;
+    }
+    .nav-mobile a:last-of-type { border-bottom: none; }
+    .nav-mobile a:hover { color: var(--accent); }
+    .nav-mobile .btn { margin-top: 0.75rem; justify-content: center; width: 100%; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0.5rem 1.25rem; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600;
+      text-decoration: none; transition: all 0.15s; border: none; cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: var(--white); }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-outline {
+      background: transparent; color: var(--gray-800);
+      border: 1.5px solid var(--gray-200);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(160deg, var(--accent-pale) 0%, var(--white) 55%);
+      padding: 5rem 2rem 4rem; text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--accent-pale); border: 1px solid #7C3AED60;
+      color: var(--accent-dark); font-size: 0.8rem; font-weight: 600;
+      padding: 4px 12px; border-radius: 999px; margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; line-height: 1.15;
+      color: var(--gray-900); max-width: 760px; margin: 0 auto 1.25rem;
+    }
+    .hero h1 .highlight { color: var(--accent); }
+    .hero p {
+      font-size: 1.125rem; color: var(--gray-600);
+      max-width: 580px; margin: 0 auto 2.5rem;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .hero-actions .btn { padding: 0.75rem 1.75rem; font-size: 1rem; }
+    .hero-meta {
+      margin-top: 2.5rem; font-size: 0.8rem; color: var(--gray-400);
+      display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+    }
+    .hero-screenshot {
+      margin: 3rem auto 0; max-width: 900px;
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15); border: 1px solid var(--gray-200);
+    }
+    .hero-screenshot img { width: 100%; display: block; }
+
+    /* ── SECTION ── */
+    .section { padding: 5rem 2rem; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 800;
+      color: var(--gray-900); line-height: 1.2; margin-bottom: 1rem;
+    }
+    .section-sub { font-size: 1rem; color: var(--gray-600); max-width: 560px; }
+
+    /* ── FEATURES ── */
+    .features { background: var(--gray-50); }
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem; margin-top: 3rem;
+    }
+    .feature-card {
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); padding: 1.75rem;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); border-color: var(--accent); }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--accent-pale); display: flex; align-items: center;
+      justify-content: center; font-size: 1.25rem; margin-bottom: 1rem;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .feature-card p { font-size: 0.9rem; color: var(--gray-600); line-height: 1.6; }
+
+    /* ── SLIDESHOW SECTION (dark) ── */
+    .slideshow-section { background: var(--gray-900); }
+    .slideshow-section .section-label { color: #A78BFA; }
+    .slideshow-section .section-title { color: var(--white); }
+    .slideshow-section .section-sub { color: var(--gray-400); }
+    .slideshow-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 3rem; align-items: center; margin-top: 3rem;
+    }
+    @media (max-width: 768px) { .slideshow-grid { grid-template-columns: 1fr; } }
+    .slideshow-screenshot {
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4); border: 1px solid #30363D;
+    }
+    .slideshow-screenshot img { width: 100%; display: block; }
+    .flow-steps { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+    .flow-step {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 1rem 1.25rem;
+    }
+    .flow-step h4 { font-size: 0.9rem; font-weight: 700; color: var(--white); margin-bottom: 0.25rem; }
+    .flow-step p { font-size: 0.825rem; color: var(--gray-400); line-height: 1.55; }
+    .flow-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+    .flow-pill {
+      background: rgba(124,58,237,0.2); border: 1px solid rgba(167,139,250,0.35);
+      color: #C4B5FD; font-size: 0.8rem; font-weight: 500;
+      padding: 4px 12px; border-radius: 999px;
+    }
+
+    /* ── INSTALL ── */
+    .install { background: var(--gray-900); }
+    .install .section-label { color: #A78BFA; }
+    .install .section-title { color: var(--white); }
+    .install .section-sub { color: var(--gray-400); }
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 2rem; margin-top: 3rem;
+    }
+    .step { display: flex; gap: 1.25rem; }
+    .step-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--accent); color: var(--white);
+      font-weight: 700; font-size: 0.875rem;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .step h3 { font-size: 1rem; font-weight: 600; color: var(--white); margin-bottom: 0.4rem; }
+    .step p { font-size: 0.875rem; color: var(--gray-400); line-height: 1.6; }
+    .code-block {
+      background: #0D1117; border: 1px solid #30363D;
+      border-radius: var(--radius); padding: 1.5rem 1.75rem;
+      margin-top: 2.5rem; overflow-x: auto;
+    }
+    .code-block pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem; line-height: 1.7; color: #E6EDF3;
+    }
+    .code-block .cm { color: #8B949E; }
+
+    /* ── CONTRIBUTE ── */
+    .contribute { background: var(--gray-50); }
+    .contribute-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem; margin-top: 3rem;
+    }
+    .contribute-card {
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); padding: 1.5rem;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .contribute-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); border-color: var(--accent); }
+    .contribute-card .icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+    .contribute-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .contribute-card p { font-size: 0.875rem; color: var(--gray-600); line-height: 1.6; margin-bottom: 1rem; }
+    .contribute-card a {
+      font-size: 0.875rem; font-weight: 600; color: var(--accent); text-decoration: none;
+    }
+    .contribute-card a:hover { text-decoration: underline; }
+
+    /* ── SUPPORT ── */
+    .support { background: var(--white); }
+    .support-inner {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 3rem; align-items: center; margin-top: 3rem;
+    }
+    @media (max-width: 768px) { .support-inner { grid-template-columns: 1fr; } }
+    .support-text h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; line-height: 1.25; margin-bottom: 1rem; }
+    .support-text p { font-size: 0.95rem; color: var(--gray-600); line-height: 1.7; margin-bottom: 1rem; }
+    .donate-card {
+      background: var(--gray-50); border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius); padding: 2rem;
+    }
+    .donate-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .donate-options { display: flex; flex-direction: column; gap: 0.75rem; }
+    .donate-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0.875rem 1.25rem; border-radius: 10px; text-decoration: none;
+      font-size: 0.875rem; font-weight: 600; transition: opacity 0.15s;
+      border: none; cursor: pointer;
+    }
+    .donate-btn:hover { opacity: 0.88; }
+    .donate-btn-github { background: #24292F; color: var(--white); }
+    .donate-btn-paypal { background: #003087; color: var(--white); }
+    .donate-btn-icon { font-size: 1.1rem; }
+    .donate-btn-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .donate-btn-text small { font-size: 0.75rem; font-weight: 400; opacity: 0.75; }
+
+    .deuna-btn {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: #1a1a2e; color: var(--white);
+      border: none; border-radius: 10px; padding: 0.75rem 1rem;
+      cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;
+      font-size: 0.9rem; font-weight: 600; transition: opacity 0.15s;
+    }
+    .deuna-btn:hover { opacity: 0.85; }
+    .deuna-btn-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .deuna-btn-text { display: flex; flex-direction: column; line-height: 1.2; text-align: left; }
+    .deuna-btn-text small { font-size: 0.75rem; font-weight: 400; opacity: 0.75; }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,0.65); align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--white); border-radius: 20px;
+      padding: 2rem; max-width: 340px; width: 90%; text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+    }
+    .modal-box h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .modal-box p { font-size: 0.85rem; color: var(--gray-600); margin-bottom: 1rem; }
+    .modal-box img { width: 100%; max-width: 260px; border-radius: 12px; }
+    .modal-close {
+      display: block; margin: 1rem auto 0; padding: 0.5rem 1.5rem;
+      background: var(--gray-100); border: none; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; color: var(--gray-700);
+    }
+    .modal-close:hover { background: var(--gray-200); }
+
+    /* ── OPEN SOURCE ── */
+    .opensource { background: var(--accent); }
+    .opensource .section-title { color: var(--white); }
+    .opensource .section-sub { color: rgba(255,255,255,0.85); max-width: 600px; }
+    .license-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.35);
+      color: var(--white); font-size: 0.8rem; font-weight: 600;
+      padding: 5px 14px; border-radius: 999px; margin-bottom: 1.5rem;
+    }
+    .opensource .btn-white {
+      background: var(--white); color: var(--accent-dark); font-weight: 700;
+      padding: 0.875rem 2rem; font-size: 1rem; border-radius: 8px;
+      text-decoration: none; display: inline-block; margin-top: 2rem;
+      transition: opacity 0.15s;
+    }
+    .opensource .btn-white:hover { opacity: 0.9; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--gray-900); padding: 3rem 2rem; text-align: center;
+    }
+    footer .footer-brand {
+      display: flex; align-items: center; gap: 10px;
+      justify-content: center; margin-bottom: 1rem;
+    }
+    footer .footer-brand span { font-size: 1rem; font-weight: 700; color: #A78BFA; }
+    footer p { font-size: 0.8rem; color: var(--gray-400); margin-top: 0.5rem; }
+    footer nav {
+      margin-top: 1.5rem; display: flex; gap: 1.5rem;
+      justify-content: center; flex-wrap: wrap;
+      position: static; background: none; border: none; backdrop-filter: none;
+    }
+    footer nav a { font-size: 0.8rem; color: var(--gray-400); text-decoration: none; }
+    footer nav a:hover { color: var(--white); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .nav-inner { padding: 0 1.25rem; }
+      .nav-links { display: none; }
+      .nav-hamburger { display: flex; }
+      .hero { padding: 4rem 1.25rem 3rem; }
+      .section { padding: 3.5rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <span>🎬 VideoBuilder</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#slideshow">Slideshows</a>
+      <a href="#install">Install</a>
+      <a href="#contribute">Contribute</a>
+      <a href="#support">Support</a>
+      <a href="https://github.com/mnavas/videobuilder" target="_blank" class="btn btn-primary">GitHub</a>
+    </div>
+    <button class="nav-hamburger" id="nav-toggle" aria-label="Open menu" onclick="toggleNav()">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-mobile" id="nav-mobile">
+    <a href="#features" onclick="closeNav()">Features</a>
+    <a href="#slideshow" onclick="closeNav()">Slideshows</a>
+    <a href="#install" onclick="closeNav()">Install</a>
+    <a href="#contribute" onclick="closeNav()">Contribute</a>
+    <a href="#support" onclick="closeNav()">Support</a>
+    <a href="https://github.com/mnavas/videobuilder" target="_blank" class="btn btn-primary">GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">🎬 Open source · Desktop app</div>
+  <h1>Build videos from clips and photos<br/><span class="highlight">on one simple timeline</span></h1>
+  <p>Drop in video clips, photos, music, and titles. Drag to arrange, overlap to crossfade, press play to preview, export to MP4. No learning curve, no subscription.</p>
+  <div class="hero-actions">
+    <a href="https://github.com/mnavas/videobuilder" class="btn btn-primary">⬇ Get started on GitHub</a>
+    <a href="docs/installation.md" class="btn btn-outline">Read the docs</a>
+  </div>
+  <div class="hero-meta">
+    <span>🎞 Timeline editing</span>
+    <span>🖼 Photo slideshows</span>
+    <span>🎵 Music &amp; titles</span>
+    <span>🐍 Python · PySide6 + ffmpeg</span>
+    <span>📄 MIT License</span>
+  </div>
+  <div class="hero-screenshot">
+    <img src="docs/main.jpg" alt="VideoBuilder — timeline editor with media pool, preview, and three tracks" />
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section features" id="features">
+  <div class="section-inner">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything you need for everyday video editing</h2>
+    <p class="section-sub">From a folder of files to a finished MP4 — without the complexity of a professional NLE.</p>
+
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">🎞</div>
+        <h3>Three-track timeline</h3>
+        <p>Video, audio, and titles on separate tracks. Drag clips to arrange, drag edges to trim, press S to split at the playhead, Delete to remove. Snapping keeps everything aligned.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">✨</div>
+        <h3>Crossfades by overlap</h3>
+        <p>Drag one clip over the end of another — the overlap automatically becomes a crossfade of exactly that length. What you see on the timeline is what exports. No transition menus.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🖼</div>
+        <h3>Batch photo import</h3>
+        <p>Pick individual images or a whole folder at once. Set seconds-per-photo and they land on the timeline back-to-back — 10 photos at 2s each becomes a 20-second video, instantly.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⏱</div>
+        <h3>Bulk timing control</h3>
+        <p>Ctrl+A or Ctrl-click to select several clips, type a new duration, done. "Pack Clips Tight" closes gaps and resolves overlaps so playback is always smooth.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📝</div>
+        <h3>Titles</h3>
+        <p>Double-click the Titles row to add text at any point; double-click an existing title to edit it. Rendered with ffmpeg drawtext, boxed and centered, exactly as previewed.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎵</div>
+        <h3>Music track</h3>
+        <p>Drop an audio file onto the timeline and slide it to where it should start. Mixed with each video clip's own sound at export; trimmed automatically to the video's length.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">▶️</div>
+        <h3>Full-video preview</h3>
+        <p>One button renders the entire timeline — clips, crossfades, titles, and music blended together — and plays it in the preview pane. Pixel-for-pixel what Export will produce.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">↩️</div>
+        <h3>Undo &amp; unsaved-changes safety</h3>
+        <p>Up to 100 steps of undo/redo with Ctrl+Z / Ctrl+Shift+Z. The title bar marks unsaved work with a * and closing prompts you to save — no silent data loss.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h3>MP4 export via ffmpeg</h3>
+        <p>The whole timeline compiles to a single ffmpeg filter graph — trims, concats, xfades, drawtext, and audio mixing in one pass. Standard H.264/AAC output that plays everywhere.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- SLIDESHOW -->
+<section class="section slideshow-section" id="slideshow">
+  <div class="section-inner">
+    <div class="section-label">Slideshows</div>
+    <h2 class="section-title">From a folder of photos to a finished video</h2>
+    <p class="section-sub">The fastest path from "here are my vacation pictures" to a video you can share.</p>
+
+    <div class="slideshow-grid">
+      <div>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <h4>1 · Add Images → Choose Folder</h4>
+            <p>Point it at a folder and every photo lands on the timeline in order, each shown for the duration you choose. Thumbnails decode in the background — even hundreds of full-resolution photos never freeze the app.</p>
+          </div>
+          <div class="flow-step">
+            <h4>2 · Add music and a title</h4>
+            <p>Select your music file in the pool and click "Add Selected to Timeline". Double-click the Titles row to drop a caption over the opening seconds.</p>
+          </div>
+          <div class="flow-step">
+            <h4>3 · Adjust timing, preview, export</h4>
+            <p>Select all photos with Ctrl+A and change the per-photo time in one step. Press ▶ Preview Full Video to hear how the music blends, then Export Video.</p>
+          </div>
+        </div>
+        <div class="flow-pills">
+          <span class="flow-pill">whole-folder import</span>
+          <span class="flow-pill">10 photos × 2s = 20s video</span>
+          <span class="flow-pill">bulk re-timing</span>
+          <span class="flow-pill">background music</span>
+          <span class="flow-pill">flip-through preview</span>
+        </div>
+      </div>
+      <div class="slideshow-screenshot">
+        <img src="docs/timeline.jpg" alt="VideoBuilder timeline — photo sequence with music and title tracks" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="section install" id="install">
+  <div class="section-inner">
+    <div class="section-label">Installation</div>
+    <h2 class="section-title">Up and running in minutes</h2>
+    <p class="section-sub">Python 3.10+, ffmpeg, Linux / macOS / Windows. No build step — clone and run.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h3>Install ffmpeg</h3>
+          <p>VideoBuilder uses ffmpeg for all media processing. One package-manager command on any OS — see the install guide for your platform.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h3>Clone and run the launcher</h3>
+          <p><code style="color:#C4B5FD;font-family:'JetBrains Mono',monospace;">./run.sh</code> creates the virtual environment and installs PySide6 + Pillow automatically on first use, then starts the app.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h3>Build your first video</h3>
+          <p>The app opens straight into an empty project. Import media or add a folder of photos, arrange them on the timeline, and export.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <pre><span class="cm"># Install ffmpeg (Ubuntu/Debian shown; see docs for macOS & Windows)</span>
+sudo apt install ffmpeg
+
+<span class="cm"># Clone the repository</span>
+git clone https://github.com/mnavas/videobuilder.git
+cd videobuilder
+
+<span class="cm"># Run — first launch sets up the venv and dependencies automatically</span>
+./run.sh</pre>
+    </div>
+
+    <p style="margin-top:2rem;color:var(--gray-400);font-size:0.875rem;">
+      For platform-specific packages, manual setup, and troubleshooting see
+      <a href="docs/installation.md" style="color:#A78BFA;text-decoration:none;">docs/installation.md</a>.
+    </p>
+  </div>
+</section>
+
+<!-- CONTRIBUTE -->
+<section class="section contribute" id="contribute">
+  <div class="section-inner">
+    <div class="section-label">Contribute</div>
+    <h2 class="section-title">Help make it better</h2>
+    <p class="section-sub">VideoBuilder is open source and welcomes contributions of any size.</p>
+
+    <div class="contribute-grid">
+      <div class="contribute-card">
+        <div class="icon">🐛</div>
+        <h3>Report a bug</h3>
+        <p>Found something that crashes or behaves unexpectedly? Open an issue on GitHub with steps to reproduce and your OS / Python / ffmpeg versions.</p>
+        <a href="https://github.com/mnavas/videobuilder/issues" target="_blank">Open an issue →</a>
+      </div>
+      <div class="contribute-card">
+        <div class="icon">💡</div>
+        <h3>Suggest a feature</h3>
+        <p>Have an idea for a transition, export preset, or workflow improvement? Open a feature request and describe what you'd like to see.</p>
+        <a href="https://github.com/mnavas/videobuilder/issues" target="_blank">Request a feature →</a>
+      </div>
+      <div class="contribute-card">
+        <div class="icon">🔧</div>
+        <h3>Submit a pull request</h3>
+        <p>Fork the repo, create a branch, and send a PR. Check <a href="analysis.md" style="color:var(--accent);">analysis.md</a> first — it explains the architecture and design decisions.</p>
+        <a href="https://github.com/mnavas/videobuilder/fork" target="_blank">Fork on GitHub →</a>
+      </div>
+      <div class="contribute-card">
+        <div class="icon">📖</div>
+        <h3>Improve the docs</h3>
+        <p>Spotted a gap in the installation guide? Docs are plain Markdown in the <code style="font-size:0.8rem;background:var(--gray-100);padding:1px 5px;border-radius:4px;">docs/</code> folder — easy to edit and submit.</p>
+        <a href="https://github.com/mnavas/videobuilder/tree/main/docs" target="_blank">Browse the docs →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUPPORT -->
+<section class="section support" id="support">
+  <div class="section-inner">
+    <div class="section-label">Support the project</div>
+    <div class="support-inner">
+      <div class="support-text">
+        <h2>Keep VideoBuilder free and actively maintained</h2>
+        <p>VideoBuilder is built and maintained as a side project. It's free and open source — but development tools, time, and motivation all have a real cost.</p>
+        <p>If the app saves you time turning clips and photos into videos, consider sponsoring the project. Every contribution helps keep it maintained and improving.</p>
+        <p style="font-size:0.85rem;color:var(--gray-400);">All contributions go directly to the developer. No company, no VC behind this.</p>
+      </div>
+      <div class="donate-card">
+        <h3>Choose how to support</h3>
+        <div class="donate-options">
+
+          <a href="https://github.com/sponsors/mnavas" target="_blank" class="donate-btn donate-btn-github">
+            <span class="donate-btn-icon">♥</span>
+            <span class="donate-btn-text">
+              GitHub Sponsors
+              <small>Monthly or one-time via GitHub</small>
+            </span>
+          </a>
+
+          <a href="https://paypal.me/warionv" target="_blank" class="donate-btn donate-btn-paypal">
+            <span class="donate-btn-icon">💳</span>
+            <span class="donate-btn-text">
+              PayPal
+              <small>paypal.me/warionv</small>
+            </span>
+          </a>
+
+          <button class="deuna-btn" onclick="document.getElementById('deuna-modal').classList.add('open')">
+            <span class="deuna-btn-icon">📱</span>
+            <span class="deuna-btn-text">
+              De Una · Banco Pichincha
+              <small>Pago con QR — Ecuador</small>
+            </span>
+          </button>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OPEN SOURCE -->
+<section class="section opensource" id="opensource">
+  <div class="section-inner" style="text-align:center;">
+    <div class="license-badge">📄 MIT License</div>
+    <h2 class="section-title">Free and open source</h2>
+    <p class="section-sub">VideoBuilder is released under the MIT License. Use it, fork it, modify it. No restrictions, no telemetry, no vendor lock-in.</p>
+    <a href="https://github.com/mnavas/videobuilder" class="btn-white">View on GitHub →</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">
+    <span>🎬 VideoBuilder</span>
+  </div>
+  <p>Simple timeline video editor and slideshow maker</p>
+  <p style="margin-top:0.4rem;">Released under the <a href="LICENSE" style="color:#A78BFA;text-decoration:none;">MIT License</a></p>
+  <nav>
+    <a href="https://github.com/mnavas/videobuilder">GitHub</a>
+    <a href="docs/installation.md">Install</a>
+    <a href="changelog.md">Changelog</a>
+    <a href="#contribute">Contribute</a>
+    <a href="#support">Support</a>
+    <a href="https://github.com/mnavas/videobuilder/issues">Issues</a>
+  </nav>
+</footer>
+
+<!-- DE UNA QR MODAL -->
+<div class="modal-overlay" id="deuna-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <h3>De Una · Banco Pichincha</h3>
+    <p>Escanea el QR con tu app bancaria para enviar tu aporte.<br>¡Muchas gracias!</p>
+    <img src="assets/deuna-qr.png" alt="QR De Una — Banco Pichincha" />
+    <button class="modal-close" onclick="document.getElementById('deuna-modal').classList.remove('open')">Cerrar</button>
+  </div>
+</div>
+
+<script>
+function toggleNav() {
+  document.getElementById('nav-toggle').classList.toggle('open');
+  document.getElementById('nav-mobile').classList.toggle('open');
+}
+function closeNav() {
+  document.getElementById('nav-toggle').classList.remove('open');
+  document.getElementById('nav-mobile').classList.remove('open');
+}
+</script>
+
+</body>
+</html>
