@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.2.3] — 2026-07-25 — Investigated "export hangs on a long video"; 2.4x faster + honest progress
+
+User report: a tester's 3-minute video export appeared to hang; reproducing with a 1-minute video
+confirmed the progress bar sits with zero visible feedback for a real, noticeable stretch before
+it even starts moving. Investigated by profiling the actual export engine with real ffmpeg,
+including on a synthetic worst case (90 image clips, all crossfading into each other, 3-minute
+timeline) and a realistic one (12 real 15s video clips with actual motion/audio, crossfades,
+music, and a title -- the exact "3 minute video" scenario).
+
+### What the profiling found
+- The single-pass ffmpeg filter graph (all clips as separate `-i` inputs, folded through chained
+  `concat`/`xfade`/`acrossfade`) does **not** blow up catastrophically with clip count or crossfade
+  count -- 90 clips with 89 chained crossfades still completed in ~72s on this dev machine (8-core,
+  i5-1135G7), roughly linear with clip count. So the architecture itself isn't the core problem.
+- What *does* matter a lot: **libx264's default preset is "medium"**, tuned for offline batch
+  encoding where time is free -- the app never overrode it. Benchmarked on the realistic 3-minute
+  case: `medium` = 69s, `veryfast` = 33s (**2.1x faster, similar file size**). This is almost
+  certainly the dominant cause of long total export times, and it compounds badly on the user's
+  "6 years old, less powerful" machine mentioned during triage -- a modern 8-core CPU absorbs the
+  `medium` preset's cost fine; an old, weaker one won't.
+- Separately, and regardless of total time: **the progress dialog had no way to show anything was
+  happening before ffmpeg's first real progress line arrived** (`ExportProgressDialog` created its
+  `QProgressBar` in determinate mode, range 0-100, starting at 0) -- so the entire startup phase
+  (ffmpeg opening every input file and parsing the whole filter graph before producing one output
+  frame) rendered as a bar frozen at 0%. On a fast machine that gap is ~1-4s; on an old/slow one it
+  could stretch much longer, and a frozen 0% bar with no text is indistinguishable from "hung."
+
+### Fixes
+- **`core/ffmpeg_export.py`**: added `X264_PRESET = "veryfast"`, passed via `-preset` to the libx264
+  encode. Re-verified end-to-end through the real `export_timeline()` (not just an isolated ffmpeg
+  benchmark) on the same 3-minute real-video case: **73.9s → 30.5s (2.4x faster)**, output duration
+  and audio/video streams unchanged and correct.
+- **`ui/export_dialog.py`**: the progress bar now starts in **indeterminate ("busy") mode** with the
+  label reading **"Starting…"**, and switches to a real percentage the instant ffmpeg's first
+  progress line arrives (label becomes "Rendering… NN%"). Also added a live **"Elapsed: M:SS"**
+  label, ticking every second for the whole export -- so even if percentage progress stalls or moves
+  slowly on a slow machine, there's continuous, honest evidence the process is still alive, not just
+  reassurance at the very start.
+- **Verified** with a fake worker that sleeps 1s before emitting any progress (simulating ffmpeg's
+  silent startup): confirmed the dialog shows "Starting…" + indeterminate bar for that entire gap,
+  then flips to determinate mode and tracks real percentages exactly once progress begins. Verified
+  the elapsed label visibly ticks (0:00 → 0:01 → 0:02) across a simulated 2.5s task.
+
+### Not done (evaluated, deliberately deferred)
+- **Segmented/batch rendering** (splitting the timeline into independently-encoded chunks, then
+  fast-concatenating them) was considered, since it's what the user asked about directly. Given the
+  profiling showed the current single-pass approach scales roughly linearly rather than
+  catastrophically, and the preset fix alone already recovers >2x, segmenting was judged to add
+  substantial complexity (correctly splitting music/title clips that straddle a segment boundary,
+  choosing safe cut points that never fall mid-crossfade, concat-demuxer stream compatibility) for
+  benefit that's mostly redundant with what indeterminate-progress + elapsed-time already solve
+  perceptually. Flagging as a real, larger follow-up if the preset fix + honest progress don't fully
+  resolve it on the user's actual hardware.
+
 ## [0.2.2] — 2026-07-05 — QA/UX round: undo/redo, unsaved-changes safety net, 3 bugs fixed
 
 QA pass focused on the recent features (multi-select, bulk duration, previews), then implemented

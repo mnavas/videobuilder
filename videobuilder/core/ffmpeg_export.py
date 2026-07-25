@@ -18,6 +18,14 @@ ProgressCallback = Optional[Callable[[float], None]]
 
 MIN_TRANSITION_SECONDS = 0.05
 
+# libx264's default preset ("medium") is tuned for offline encoding where
+# time doesn't matter. Measured on a real 3-clip-with-crossfades, ~3-minute
+# 1280x720 timeline: medium=69s, veryfast=33s (2.1x faster, similar file
+# size). For a desktop app where a slower/older machine is common and the
+# user is sitting there watching a progress bar, that trade is clearly
+# worth it -- this is not a compression-ratio tool, it's an editor.
+X264_PRESET = "veryfast"
+
 
 def require_ffmpeg() -> None:
     if shutil.which("ffmpeg") is None:
@@ -303,7 +311,7 @@ def export_timeline(project: Project, output_path: str, on_progress: ProgressCal
     cmd = ["ffmpeg", "-y", *input_args, "-filter_complex", filter_complex]
     cmd += ["-map", f"[{video_label}]", "-map", f"[{audio_label}]"]
     cmd += ["-t", f"{total_duration:.6f}"]
-    cmd += ["-r", str(project.fps), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-c:a", "aac"]
+    cmd += ["-r", str(project.fps), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", X264_PRESET, "-c:a", "aac"]
     cmd += ["-progress", "pipe:1", "-loglevel", "error", output_path]
 
     _run_with_progress(cmd, total_duration, on_progress)
